@@ -17,6 +17,7 @@ gem "puma", ">= 5.0"
 gem "redis", "~> 5.4"
 gem "sidekiq", "~> 7.3"
 gem "pundit", "~> 2.5"
+gem "bcrypt", "~> 3.1"
 
 # Use Kredis to get higher-level data types in Redis [https://github.com/rails/kredis]
 # gem "kredis"

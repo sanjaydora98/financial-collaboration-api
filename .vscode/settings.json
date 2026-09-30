@@ -1,0 +1,9 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "bin/rails": true,
+        "bundle": true,
+        "printf": true,
+        "changes": true,
+        "true": true
+    }
+}
