@@ -1,9 +1,12 @@
 import type { ApiErrorPayload } from "@/lib/types";
 
-export function formatCurrency(amount: number, currency = "USD") {
-  return new Intl.NumberFormat("en-US", {
+export function formatCurrency(amount: number, currency = "INR") {
+  const normalizedCurrency = (currency ?? "INR").toString().toUpperCase();
+  const finalCurrency = normalizedCurrency === "USD" ? "INR" : normalizedCurrency || "INR";
+
+  return new Intl.NumberFormat("en-IN", {
     style: "currency",
-    currency,
+    currency: finalCurrency,
     maximumFractionDigits: 2,
   }).format(amount);
 }
@@ -22,6 +25,17 @@ export function safeErrorMessage(error: unknown): string {
   }
 
   if (error instanceof Error) {
+    const details = (error as Error & { details?: unknown }).details as ApiErrorPayload | undefined;
+    const validationDetails = details?.error?.details;
+    if (validationDetails) {
+      const messages = Object.entries(validationDetails).flatMap(([field, value]) => {
+        const fieldMessages = Array.isArray(value) ? value : [value];
+        return fieldMessages
+          .filter((message): message is string => typeof message === "string" && message.trim().length > 0)
+          .map((message) => `${titleCase(field)}: ${message}`);
+      });
+      if (messages.length > 0) return messages.join(" ");
+    }
     return error.message;
   }
 

@@ -59,6 +59,15 @@ RSpec.describe "Expense submission and approvals API", type: :request do
     )
   end
 
+  it "attributes both the submitted workflow audit and its update audit to the submitting creator, not an approver (regression for variable-shadowing actor bug)" do
+    submit_as
+
+    expect(@expense.audit_logs.find_by!(category: "workflow", event_type: "submitted").actor_membership_id).to eq(@creator_membership.id)
+    update_audit = @expense.audit_logs.where(category: "crud", event_type: "update").order(:id).last
+    expect(update_audit.actor_membership_id).to eq(@creator_membership.id)
+    expect([@manager_membership.id, @finance_membership.id]).not_to include(update_audit.actor_membership_id)
+  end
+
   it "allows an admin to submit a draft according to the existing ExpensePolicy" do
     @creator_membership.update!(role: "admin")
 
@@ -118,12 +127,36 @@ RSpec.describe "Expense submission and approvals API", type: :request do
     expect(response).to have_http_status(:conflict)
   end
 
+  it "exposes each stage's current approval status in the expense list for UI action-state decisions" do
+    submit_as
+    decide(@manager, "approve", params: { stage: "finance" })
+
+    get "/teams/#{@team.id}/expenses", headers: headers_for(@manager)
+    expect(response).to have_http_status(:ok)
+    expense_payload = response_json.fetch("expenses").find { |item| item.fetch("id") == @expense.id }
+    approvals_by_stage = expense_payload.fetch("approvals").index_by { |approval| approval.fetch("stage") }
+
+    expect(approvals_by_stage.fetch("manager")).to include(
+      "status" => "approved",
+      "approver_membership_id" => @manager_membership.id,
+      "acted_at" => be_present
+    )
+    expect(approvals_by_stage.fetch("finance")).to include(
+      "status" => "pending",
+      "approver_membership_id" => @finance_membership.id,
+      "acted_at" => be_nil
+    )
+  end
+
   it "rejects at Manager stage and skips Finance without making it actionable" do
     submit_as
 
     decide(@manager, "reject", rejection_reason: "Missing receipt")
 
     expect(response).to have_http_status(:ok)
+    expect(response_json.dig("approval", "status")).to eq("rejected")
+    expect(response_json.dig("approval", "rejection_reason")).to eq("Missing receipt")
+    expect(response_json.dig("expense", "status")).to eq("rejected")
     expect(@expense.reload.status).to eq("rejected")
     expect(@expense.expense_approvals.find_by!(stage: "manager")).to have_attributes(status: "rejected", rejection_reason: "Missing receipt")
     expect(@expense.expense_approvals.find_by!(stage: "finance")).to have_attributes(status: "skipped", acted_at: be_present)

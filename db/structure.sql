@@ -353,6 +353,7 @@ CREATE TABLE public.team_memberships (
     active boolean DEFAULT true NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    public_id uuid DEFAULT gen_random_uuid() NOT NULL,
     CONSTRAINT team_memberships_role_approval_stage_valid CHECK (((((role)::text = ANY ((ARRAY['creator'::character varying, 'viewer'::character varying])::text[])) AND (approval_stage IS NULL)) OR (((role)::text = 'approver'::text) AND (approval_stage IS NOT NULL) AND ((approval_stage)::text = ANY ((ARRAY['manager'::character varying, 'finance'::character varying])::text[]))) OR (((role)::text = 'admin'::text) AND ((approval_stage IS NULL) OR ((approval_stage)::text = ANY ((ARRAY['manager'::character varying, 'finance'::character varying])::text[])))))),
     CONSTRAINT team_memberships_role_valid CHECK (((role)::text = ANY ((ARRAY['creator'::character varying, 'approver'::character varying, 'viewer'::character varying, 'admin'::character varying])::text[])))
 );
@@ -746,6 +747,13 @@ CREATE INDEX index_reimbursements_on_team_id_and_status_and_created_at ON public
 
 
 --
+-- Name: index_team_memberships_on_public_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_team_memberships_on_public_id ON public.team_memberships USING btree (public_id);
+
+
+--
 -- Name: index_team_memberships_on_team_and_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -965,6 +973,7 @@ ALTER TABLE ONLY public.reimbursements
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261001170000'),
 ('20260930164312'),
 ('20260930162502'),
 ('20260930154008'),

@@ -13,6 +13,10 @@ class TeamPolicy < ApplicationPolicy
     user.present?
   end
 
+  def join?
+    user.present?
+  end
+
   def show?
     active_membership.present?
   end

@@ -6,16 +6,23 @@ export type User = {
 
 export type TeamMembership = {
   id: number;
+  public_id: string;
   user_id: number;
+  user: {
+    name?: string | null;
+    email: string;
+  };
   role: "creator" | "approver" | "viewer" | "admin";
   approval_stage?: string | null;
   active: boolean;
+  status: "active" | "inactive";
 };
 
 export type Team = {
   id: number;
   name: string;
   slug: string;
+  join_code?: string;
   created_by_id: number;
   membership?: TeamMembership;
 };
@@ -35,6 +42,19 @@ export type Expense = {
   lock_version: number;
   created_at: string;
   updated_at: string;
+  approvals?: ApprovalRecord[];
+};
+
+export type AuditLogEntry = {
+  category: "crud" | "workflow";
+  event_type: string;
+  actor_type: "user" | "system";
+  actor: { name: string | null; email: string | null };
+  created_at: string;
+  change_data: {
+    before?: Record<string, unknown>;
+    after?: Record<string, unknown>;
+  };
 };
 
 export type ImportRecord = {

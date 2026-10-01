@@ -58,7 +58,7 @@ expenses = expense_examples.to_h do |attributes|
 			creator_membership: memberships.fetch(:viewer),
 			member_membership: memberships.fetch(:viewer),
 			amount: attributes.fetch(:amount),
-			currency: "USD",
+			currency: "INR",
 			merchant: attributes.fetch(:merchant),
 			description: attributes.fetch(:description),
 			category: attributes.fetch(:category),
@@ -140,7 +140,7 @@ transaction_examples.each_with_index do |(external_id, status, reviewer, reason)
 		transaction.provider = import.provider
 		transaction.external_account_ref = "northstar-operating"
 		transaction.amount = index.zero? ? "93.20" : "32.00"
-		transaction.currency = "USD"
+		transaction.currency = "INR"
 		transaction.merchant = index.zero? ? "City Bike Share" : "Personal Market"
 		transaction.description = index.zero? ? "Client meeting transport" : "Non-business purchase"
 		transaction.category = "Travel"

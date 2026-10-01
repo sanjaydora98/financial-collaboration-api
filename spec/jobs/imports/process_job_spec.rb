@@ -24,7 +24,7 @@ RSpec.describe Imports::ProcessJob do
 
   it "is enqueued with a stable Import ID and JSON-safe permitted payload" do
     _unused_import, team = create_import
-    membership = team.team_memberships.find_by!(role: "creator")
+    membership = team.team_memberships.find_by!(role: "admin")
     payload = transaction_payload
     result = Imports::Request.call(
       team: team,

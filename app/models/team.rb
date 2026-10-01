@@ -9,4 +9,8 @@ class Team < ApplicationRecord
 
   validates :name, :slug, presence: true
   validates :slug, uniqueness: true
+
+  def join_code
+    slug
+  end
 end

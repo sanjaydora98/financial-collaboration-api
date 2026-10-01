@@ -15,9 +15,9 @@ RSpec.describe "Expenses API", type: :request do
   end
 
   def promote_to_admin(team, user)
-    membership = team.team_memberships.find_by!(user: user)
-    Teams::PromoteCreatorToAdmin.call(team: team, membership: membership, user: user)
-    membership
+    # The team creator is already admin as of Teams::Create; this helper is
+    # kept so existing call sites read clearly, but no promotion is needed.
+    team.team_memberships.find_by!(user: user, role: "admin")
   end
 
   def expense_params(attributes = {})
@@ -78,8 +78,10 @@ RSpec.describe "Expenses API", type: :request do
     end
 
     it "prevents a non-admin from creating an expense for another member" do
+      owner = create_user("non-admin-expense-owner@example.com")
+      team = create_team(owner)
       creator = create_user("non-admin-expense@example.com")
-      team = create_team(creator)
+      TeamMembership.create!(team: team, user: creator, role: "creator")
       target = TeamMembership.create!(team: team, user: create_user("non-admin-target@example.com"), role: "viewer")
 
       expect { post_expense(team, creator, member_membership_id: target.id) }.not_to change(Expense, :count)
@@ -139,11 +141,12 @@ RSpec.describe "Expenses API", type: :request do
 
   describe "reading" do
     it "lists and shows permitted team expenses but hides other creators' expenses from a creator" do
+      owner = create_user("expense-owner-admin@example.com")
+      team = create_team(owner)
       creator = create_user("expense-owner@example.com")
-      team = create_team(creator)
+      own_membership = TeamMembership.create!(team: team, user: creator, role: "creator")
       other_creator = create_user("expense-other-creator@example.com")
       other_membership = TeamMembership.create!(team: team, user: other_creator, role: "creator")
-      own_membership = team.team_memberships.find_by!(user: creator)
       own_expense = Expense.create!(team: team, creator_membership: own_membership, member_membership: own_membership,
         amount: 10, currency: "USD", merchant: "Own", incurred_on: Date.current)
       other_expense = Expense.create!(team: team, creator_membership: other_membership, member_membership: other_membership,
@@ -158,6 +161,20 @@ RSpec.describe "Expenses API", type: :request do
 
       get "/teams/#{team.id}/expenses/#{other_expense.id}", headers: headers_for(creator)
       expect(response).to have_http_status(:forbidden)
+    end
+
+    it "returns 200 consistently for repeated index requests (regression for stray debugger calls)" do
+      owner = create_user("expense-index-regression@example.com")
+      team = create_team(owner)
+      membership = team.team_memberships.find_by!(user: owner)
+      Expense.create!(team: team, creator_membership: membership, member_membership: membership,
+        amount: 10, currency: "USD", merchant: "Own", incurred_on: Date.current)
+
+      3.times do
+        get "/teams/#{team.id}/expenses", headers: headers_for(owner)
+        expect(response).to have_http_status(:ok)
+        expect(json).not_to have_key("error")
+      end
     end
 
     it "returns 404 for cross-team and non-member expense access" do

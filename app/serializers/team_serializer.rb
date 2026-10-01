@@ -4,6 +4,7 @@ class TeamSerializer
       id: team.id,
       name: team.name,
       slug: team.slug,
+      join_code: team.join_code,
       created_by_id: team.created_by_id,
       membership: membership && TeamMembershipSerializer.call(membership)
     }

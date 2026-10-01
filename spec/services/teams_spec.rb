@@ -5,7 +5,7 @@ RSpec.describe "Team services" do
     User.create!(email: email, name: email.split("@").first, password: "password123")
   end
 
-  it "creates a team and exactly one active creator membership in one service operation" do
+  it "creates a team and makes its creator an active admin membership in one service operation" do
     user = create_user("team-service@example.com")
 
     expect {
@@ -13,13 +13,17 @@ RSpec.describe "Team services" do
     }.to change(Team, :count).by(1).and change(TeamMembership, :count).by(1)
 
     expect(@team.creator).to eq(user)
-    expect(@membership).to have_attributes(user: user, role: "creator", active: true, approval_stage: nil)
+    expect(@membership).to have_attributes(user: user, role: "admin", active: true, approval_stage: nil)
     expect(@team.team_memberships.count).to eq(1)
   end
 
-  it "promotes the creator's existing membership transactionally without inserting another membership" do
+  it "promotes a legacy creator-role membership transactionally without inserting another membership" do
+    # Simulates a membership row created before team creators were granted
+    # admin directly (see "creates a team..." above); Teams::PromoteCreatorToAdmin
+    # remains available to upgrade any pre-existing "creator" role membership.
     user = create_user("promotion-service@example.com")
-    team, membership = Teams::Create.call(user: user, attributes: { name: "Promotion Team", slug: "promotion-team" })
+    team = Team.create!(name: "Promotion Team", slug: "promotion-team", creator: user)
+    membership = team.team_memberships.create!(user: user, role: "creator", active: true)
 
     expect {
       Teams::PromoteCreatorToAdmin.call(team: team, membership: membership, user: user)
@@ -37,5 +41,18 @@ RSpec.describe "Team services" do
       Teams::PromoteCreatorToAdmin.call(team: team, membership: membership, user: other_user)
     }.to raise_error(Pundit::NotAuthorizedError)
     expect(membership.reload.role).to eq("viewer")
+  end
+
+  it "protects the last active admin at the membership update service boundary" do
+    user = create_user("last-active-admin@example.com")
+    team, membership = Teams::Create.call(user: user, attributes: { name: "Last Admin Team", slug: "last-admin-team" })
+
+    expect {
+      TeamMemberships::Update.call(team: team, membership: membership, attributes: { active: false })
+    }.to raise_error(TeamMemberships::Update::LastActiveAdminError)
+    expect {
+      TeamMemberships::Update.call(team: team, membership: membership, attributes: { role: "viewer" })
+    }.to raise_error(TeamMemberships::Update::LastActiveAdminError)
+    expect(membership.reload).to have_attributes(role: "admin", active: true)
   end
 end

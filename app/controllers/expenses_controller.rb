@@ -8,7 +8,7 @@ class ExpensesController < ApplicationController
 
   def index
     authorize @team, :show?
-    expenses = policy_scope(@team.expenses).order(created_at: :desc, id: :desc)
+    expenses = policy_scope(@team.expenses).includes(:expense_approvals).order(created_at: :desc, id: :desc)
     render json: { expenses: expenses.map { |expense| expense_response(expense) } }, status: :ok
   end
 
@@ -37,7 +37,11 @@ class ExpensesController < ApplicationController
 
   def show
     authorize @expense, :show?
-    render json: { expense: expense_response(@expense) }, status: :ok
+    audit_logs = @expense.audit_logs.includes(actor_membership: :user).order(created_at: :desc, id: :desc)
+    render json: {
+      expense: expense_response(@expense),
+      audit_logs: audit_logs.map { |audit_log| AuditLogSerializer.call(audit_log) }
+    }, status: :ok
   end
 
   def update
@@ -186,6 +190,8 @@ class ExpensesController < ApplicationController
   end
 
   def expense_response(expense)
-    ExpenseSerializer.call(expense)
+    ExpenseSerializer.call(expense).merge(
+      approvals: expense.expense_approvals.order(:step).map { |approval| ExpenseApprovalSerializer.call(approval) }
+    )
   end
 end

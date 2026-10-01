@@ -20,6 +20,7 @@ See [docs/architecture.md](docs/architecture.md) and [docs/database_design.md](d
 ## Main Features
 
 - Bearer authentication with expiring and revocable sessions
+- Team creation and join-by-code flows with a public team slug used as the join code
 - Team membership and role-based authorization
 - Expense creation, editing, logical deletion, and optimistic locking
 - Ordered Manager and Finance approval workflow with rejection paths
@@ -102,8 +103,8 @@ Demo users are seeded with the same local-only password, `DemoPass123!`:
 These credentials are for local/demo environments only. `bin/rails db:seed` is safe to rerun.
 
 1. Register or log in through the frontend.
-2. Create a team through authenticated `POST /teams`; promote its initial creator membership with `POST /teams/:id/bootstrap_admin`.
-3. Provision one Manager and one Finance approver using the protected team-membership API. Team creation and role provisioning are API workflows; the MVP frontend currently selects existing teams and displays memberships.
+2. Create a new team from the workspace header or join an existing one using that team’s slug as the join code.
+3. Promote the initial creator membership to admin through the bootstrap endpoint when needed, then provision one Manager and one Finance approver using the protected team-membership API.
 4. Create an expense in the frontend, edit it while it is a draft, then submit it.
 5. Sign in as the assigned Manager and approve, then sign in as the assigned Finance approver and approve.
 6. Create a reimbursement and confirm the simulated payout changes the expense to reimbursed.
@@ -133,7 +134,7 @@ Rails optimistic locking protects expense edits using `lock_version`. Workflow r
 - Reimbursements use an internal simulator; no payment provider is connected.
 - Imports accept normalized JSON transaction batches; there is no external bank/provider integration.
 - A team supports one active Manager and one active Finance assignment for this take-home workflow.
-- Team creation and membership role provisioning are available through the API, not the current frontend screens.
+- The team join flow uses the public slug as the join code; it does not add expiry or invite token management beyond the existing schema.
 - The approval queue lists submitted team expenses broadly instead of filtering to the current user's assigned step; the API still enforces assignment and returns conflicts for stale or out-of-order decisions.
 - Import completion is fetched through the API but is not broadcast over ActionCable; refresh the import view to see background processing finish.
 - The frontend is an evaluator-oriented MVP; it stores the bearer token in browser localStorage and is not a hardened enterprise identity client.

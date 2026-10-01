@@ -14,7 +14,7 @@ export default function NewExpensePage() {
   const { selectedTeam } = useAuth();
   const [form, setForm] = useState({
     amount: "",
-    currency: "USD",
+    currency: "INR",
     merchant: "",
     description: "",
     category: "Travel",

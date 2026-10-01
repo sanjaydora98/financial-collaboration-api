@@ -153,6 +153,18 @@ RSpec.describe "Foundation models" do
       }.to raise_error(ActiveRecord::RecordNotUnique)
     end
 
+    it "assigns unique public identifiers to memberships" do
+      team, = create_team_and_creator
+      first = TeamMembership.find_by!(team: team)
+      second = TeamMembership.create!(team: team, user: create_user("public-id-member@example.com"), role: "viewer")
+
+      expect(first.public_id).to match(/\A[0-9a-f-]{36}\z/i)
+      expect(second.public_id).to match(/\A[0-9a-f-]{36}\z/i)
+      expect(second.public_id).not_to eq(first.public_id)
+      public_id_index = TeamMembership.connection.indexes(:team_memberships).find { |index| index.columns == ["public_id"] }
+      expect(public_id_index&.unique).to be(true)
+    end
+
     it "allows one active Manager slot across approver and staged-admin memberships" do
       team, = create_team_and_creator
       admin_user = create_user("manager-admin@example.com")

@@ -15,11 +15,13 @@ RSpec.describe "Imports API", type: :request do
   end
 
   def setup_import_context
-    @requester = create_user("import-requester-#{SecureRandom.hex(4)}@example.com")
-    @team, @requester_membership = Teams::Create.call(
-      user: @requester,
+    owner = create_user("import-owner-#{SecureRandom.hex(4)}@example.com")
+    @team, = Teams::Create.call(
+      user: owner,
       attributes: { name: "Import team", slug: "import-team-#{SecureRandom.hex(4)}" }
     )
+    @requester = create_user("import-requester-#{SecureRandom.hex(4)}@example.com")
+    @requester_membership = TeamMembership.create!(team: @team, user: @requester, role: "creator")
     @admin = create_user("import-admin-#{SecureRandom.hex(4)}@example.com")
     @admin_membership = TeamMembership.create!(team: @team, user: @admin, role: "admin")
     @approver = create_user("import-approver-#{SecureRandom.hex(4)}@example.com")

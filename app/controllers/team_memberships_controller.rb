@@ -8,7 +8,7 @@ class TeamMembershipsController < ApplicationController
   def index
     membership = TeamMembership.new(team: @team)
     authorize membership, :index?
-    memberships = @team.team_memberships
+    memberships = @team.team_memberships.includes(:user)
     memberships = memberships.where(active: true) unless current_user.team_memberships.exists?(team_id: @team.id, role: MembershipConstants::ROLES[:admin], active: true)
     render json: { memberships: memberships.order(:id).map { |item| TeamMembershipSerializer.call(item) } }, status: :ok
   end
@@ -51,7 +51,13 @@ class TeamMembershipsController < ApplicationController
   end
 
   def set_membership
-    @membership = @team.team_memberships.find(params[:id])
+    membership_scope = @team.team_memberships
+    identifier = params[:id].to_s
+    @membership = if identifier.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/i)
+      membership_scope.find_by!(public_id: identifier)
+    else
+      membership_scope.find(identifier)
+    end
   end
 
   def membership_params

@@ -149,6 +149,16 @@ RSpec.describe "Authentication API", type: :request do
       expect(session.reload.last_used_at).to be_within(2.seconds).of(Time.current)
     end
 
+    it "does not auto-wrap params under an 'authentication' key (regression for ParamsWrapper noise)" do
+      user = create_user
+      token, = token_for(user)
+
+      get "/auth/me", headers: authenticate(token).merge("Content-Type" => "application/json")
+
+      expect(response).to have_http_status(:ok)
+      expect(request.params).not_to have_key("authentication")
+    end
+
     it "revokes only the current session on logout" do
       user = create_user
       token, session = token_for(user)

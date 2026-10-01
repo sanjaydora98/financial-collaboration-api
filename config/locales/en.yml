@@ -69,3 +69,11 @@ en:
       last_admin_required: "A team must retain an active admin."
     team:
       conflict: "Team slug is already in use."
+      not_found: "Team not found."
+  activerecord:
+    errors:
+      models:
+        audit_log:
+          attributes:
+            event_type:
+              invalid_for_category: "is not a valid event type for this category."

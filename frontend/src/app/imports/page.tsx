@@ -18,7 +18,7 @@ export default function ImportsPage() {
   const [idempotencyKey, setIdempotencyKey] = useState("demo-import");
   const [transactions, setTransactions] = useState(
     `[
-      {"external_account_ref":"acct-100","external_transaction_id":"txn-1","amount":45.5,"currency":"USD","merchant":"Coffee House","description":"Team coffee","category":"Meals","transaction_date":"2026-10-01"}
+      {"external_account_ref":"acct-100","external_transaction_id":"txn-1","amount":45.5,"currency":"INR","merchant":"Coffee House","description":"Team coffee","category":"Meals","transaction_date":"2026-10-01"}
     ]`,
   );
 

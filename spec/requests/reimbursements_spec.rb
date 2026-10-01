@@ -17,9 +17,10 @@ RSpec.describe "Reimbursements API", type: :request do
   end
 
   def setup_reimbursement_context
+    owner = create_user("reimbursement-owner-#{SecureRandom.hex(4)}@example.com")
+    @team = create_team(owner)
     @creator = create_user("reimbursement-creator-#{SecureRandom.hex(4)}@example.com")
-    @team = create_team(@creator)
-    @creator_membership = @team.team_memberships.find_by!(user: @creator)
+    @creator_membership = TeamMembership.create!(team: @team, user: @creator, role: "creator")
     @other_creator = create_user("reimbursement-other-#{SecureRandom.hex(4)}@example.com")
     @other_creator_membership = TeamMembership.create!(team: @team, user: @other_creator, role: "creator")
     @admin = create_user("reimbursement-admin-#{SecureRandom.hex(4)}@example.com")

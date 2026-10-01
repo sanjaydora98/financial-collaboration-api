@@ -8,15 +8,18 @@ module Expenses
         raise WorkflowConflict unless ExpenseConstants.transition_allowed?(expense.status, ExpenseConstants::STATUSES[:submitted]) && expense.deleted_at.nil?
         raise WorkflowConflict if expense.expense_approvals.exists?
 
+        # NOTE: use a distinct local name here (not `membership`) so the submitter's
+        # own membership resolved above is not clobbered; it is still needed below
+        # to attribute the submit audit log to the actual submitting user.
         approvers = ApprovalConstants::INITIAL_STEPS.map do |step|
-          membership = expense.team.team_memberships.where(
+          stage_approver_membership = expense.team.team_memberships.where(
             active: true,
             role: [MembershipConstants::ROLES[:approver], MembershipConstants::ROLES[:admin]],
             approval_stage: step[:stage]
           ).first
-          raise WorkflowConfigurationError, I18n.t("errors.approval.missing_approver", stage: step[:stage]) unless membership
+          raise WorkflowConfigurationError, I18n.t("errors.approval.missing_approver", stage: step[:stage]) unless stage_approver_membership
 
-          [step, membership]
+          [step, stage_approver_membership]
         end
 
         before_status = expense.status

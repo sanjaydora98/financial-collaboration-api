@@ -14,6 +14,9 @@ Rails.application.routes.draw do
   delete "auth/logout", to: "authentication#logout"
 
   resources :teams, only: %i[index create show] do
+    collection do
+      post :join
+    end
     post :bootstrap_admin, on: :member
     resources :memberships, controller: "team_memberships", only: %i[index create update destroy]
     resources :expenses, only: %i[index create show update destroy]

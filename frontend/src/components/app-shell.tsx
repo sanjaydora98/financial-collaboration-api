@@ -17,6 +17,7 @@ import {
 import { useAuth } from "@/components/auth-provider";
 import { Button, LoadingState } from "@/components/ui";
 import { useTeamRealtime } from "@/hooks/use-team-realtime";
+import { roleLabel } from "@/lib/helpers";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -112,6 +113,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   ))
                 )}
               </select>
+              {selectedTeam?.join_code ? (
+                <span className="team-code">Code: {selectedTeam.join_code}</span>
+              ) : null}
+              {selectedTeam?.membership?.role ? (
+                <span className="team-code" data-testid="current-role-badge">
+                  Your role: {roleLabel(selectedTeam.membership.role)}
+                </span>
+              ) : null}
+            </div>
+            <div className="topbar-actions">
+              <Link href="/teams/new" className="button secondary small">Create team</Link>
+              <Link href="/teams/join" className="button secondary small">Join team</Link>
             </div>
           </div>
 

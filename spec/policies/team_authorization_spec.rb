@@ -26,11 +26,12 @@ RSpec.describe "Team-scoped authorization policies" do
   end
 
   describe TeamPolicy do
-    it "allows a creator to view their team but not manage membership" do
-      creator = create_user("policy-creator@example.com")
-      team = create_team(creator, "policy-creator-team")
+    it "allows a non-admin creator-role member to view their team but not manage membership" do
+      owner = create_user("policy-owner-plain@example.com")
+      team = create_team(owner, "policy-creator-team")
+      member = add_membership(team, "policy-creator@example.com", role: "creator")
 
-      policy = described_class.new(creator, team)
+      policy = described_class.new(member.user, team)
       expect(policy.show?).to be(true)
       expect(policy.manage_members?).to be(false)
     end
@@ -60,22 +61,25 @@ RSpec.describe "Team-scoped authorization policies" do
     it "allows only admins to manage other memberships" do
       owner = create_user("membership-policy-owner@example.com")
       team = create_team(owner, "membership-policy-team")
-      creator_membership = team.team_memberships.find_by!(user: owner)
-      creator_policy = described_class.new(owner, TeamMembership.new(team: team, user: create_user("target-creator@example.com")))
+      creator_membership = add_membership(team, "membership-policy-member@example.com", role: "creator")
+      creator_policy = described_class.new(creator_membership.user, TeamMembership.new(team: team, user: create_user("target-creator@example.com")))
       expect(creator_policy.create?).to be(false)
 
       creator_membership.update!(role: "admin")
       target = TeamMembership.new(team: team, user: create_user("target-admin@example.com"))
-      admin_policy = described_class.new(owner, target)
+      admin_policy = described_class.new(creator_membership.user, target)
       expect(admin_policy.create?).to be(true)
       expect(admin_policy.update?).to be(true)
       expect(admin_policy.destroy?).to be(true)
     end
 
-    it "allows only the team creator to promote their own active creator membership" do
+    it "allows only the team creator to promote their own active legacy creator membership" do
+      # Simulates a pre-existing membership row created before team creators
+      # were granted admin directly; bootstrap_admin? remains available for
+      # that legacy "creator" role data path.
       creator = create_user("bootstrap-policy@example.com")
-      team = create_team(creator, "bootstrap-policy-team")
-      creator_membership = team.team_memberships.find_by!(user: creator)
+      team = Team.create!(name: "bootstrap-policy-team", slug: "bootstrap-policy-team", creator: creator)
+      creator_membership = team.team_memberships.create!(user: creator, role: "creator", active: true)
       another_user = create_user("bootstrap-policy-other@example.com")
       another_membership = TeamMembership.create!(team: team, user: another_user, role: "viewer")
 

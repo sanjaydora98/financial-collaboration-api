@@ -6,8 +6,16 @@ import { AppShell } from "@/components/app-shell";
 import { useAuth } from "@/components/auth-provider";
 import { Button, ErrorAlert, LoadingState, PageHeader, StatusBadge } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
-import { formatCurrency, safeErrorMessage } from "@/lib/helpers";
-import type { Expense } from "@/lib/types";
+import { formatCurrency, safeErrorMessage, titleCase } from "@/lib/helpers";
+import type { ApprovalRecord, Expense } from "@/lib/types";
+
+// Finds the approval step assigned to the signed-in user's membership, if any,
+// so the UI can reflect that stage's real status instead of guessing from the
+// overall expense status.
+function myApproval(expense: Expense, membershipId?: number): ApprovalRecord | undefined {
+  if (!membershipId) return undefined;
+  return expense.approvals?.find((approval) => approval.approver_membership_id === membershipId);
+}
 
 export default function ApprovalsPage() {
   const { selectedTeam } = useAuth();
@@ -80,7 +88,11 @@ export default function ApprovalsPage() {
         </div>
       ) : (
         <div className="stack-list">
-          {queue.map((expense) => (
+          {queue.map((expense) => {
+            const approval = myApproval(expense, selectedTeam?.membership?.id);
+            const canDecide = approval?.status === "pending";
+
+            return (
             <div key={expense.id} className="panel list-panel">
               <div className="panel-header">
                 <h3>{expense.description || expense.merchant}</h3>
@@ -92,23 +104,32 @@ export default function ApprovalsPage() {
                 <p><strong>Merchant</strong><span>{expense.merchant}</span></p>
               </div>
 
-              <div className="approval-form">
-                <input
-                  value={rejectionReason[expense.id] ?? ""}
-                  onChange={(event) =>
-                    setRejectionReason((current) => ({ ...current, [expense.id]: event.target.value }))
-                  }
-                  placeholder="Optional rejection reason"
-                />
-                <div className="button-row">
-                  <Button onClick={() => void handleDecision(expense, "approve")}>Approve</Button>
-                  <Button variant="secondary" onClick={() => void handleDecision(expense, "reject")}>
-                    Reject
-                  </Button>
+              {canDecide ? (
+                <div className="approval-form">
+                  <input
+                    value={rejectionReason[expense.id] ?? ""}
+                    onChange={(event) =>
+                      setRejectionReason((current) => ({ ...current, [expense.id]: event.target.value }))
+                    }
+                    placeholder="Optional rejection reason"
+                  />
+                  <div className="button-row">
+                    <Button onClick={() => void handleDecision(expense, "approve")}>Approve</Button>
+                    <Button variant="secondary" onClick={() => void handleDecision(expense, "reject")}>
+                      Reject
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <p className="muted approval-stage-status">
+                  {approval
+                    ? `Your stage (${titleCase(approval.stage)}): ${titleCase(approval.status)}`
+                    : "No action required from you for this expense."}
+                </p>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </AppShell>

@@ -15,9 +15,15 @@ class TeamMembership < ApplicationRecord
   has_many :reviewed_imported_transactions, class_name: "ImportedTransaction", foreign_key: :reviewed_by_membership_id, inverse_of: :reviewed_by_membership, dependent: :restrict_with_exception
 
   validates :role, presence: true
+  validates :public_id, presence: true, uniqueness: true
+  before_validation :assign_public_id, on: :create
   validate :approval_stage_matches_role
 
   private
+
+  def assign_public_id
+    self.public_id ||= SecureRandom.uuid
+  end
 
   def approval_stage_matches_role
     allowed = case role

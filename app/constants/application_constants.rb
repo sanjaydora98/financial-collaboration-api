@@ -1,5 +1,5 @@
 # frozen_string_literal: true
 
 module ApplicationConstants
-  DEFAULT_CURRENCY = "USD"
+  DEFAULT_CURRENCY = "INR"
 end

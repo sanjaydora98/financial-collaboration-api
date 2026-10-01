@@ -81,7 +81,7 @@ RSpec.describe "Reimbursement services" do
     expect(retried.status).to eq("paid")
     expect(retried.failure_reason).to be_nil
     expect(expense.reload.status).to eq("reimbursed")
-    expect(expense.audit_logs.where(category: "workflow").pluck(:event_type)).to eq(
+    expect(expense.audit_logs.where(category: "workflow").order(:id).pluck(:event_type)).to eq(
       %w[reimbursement_initiated reimbursement_failed reimbursement_initiated reimbursement_paid]
     )
   end
