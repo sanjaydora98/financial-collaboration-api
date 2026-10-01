@@ -9,6 +9,7 @@ Rails.application.routes.draw do
 
   post "auth/register", to: "authentication#register"
   post "auth/login", to: "authentication#login"
+  post "auth/cable_ticket", to: "authentication#cable_ticket"
   get "auth/me", to: "authentication#me"
   delete "auth/logout", to: "authentication#logout"
 

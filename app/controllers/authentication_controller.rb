@@ -1,7 +1,7 @@
 class AuthenticationController < ApplicationController
   include BearerAuthentication
 
-  before_action :authenticate_request!, only: %i[me logout]
+  before_action :authenticate_request!, only: %i[cable_ticket me logout]
 
   def register
     user, credentials = Authentication::RegisterUser.call(registration_params)
@@ -9,13 +9,13 @@ class AuthenticationController < ApplicationController
   rescue ActiveRecord::RecordInvalid => error
     render json: { error: { code: "invalid_registration", details: error.record.errors.to_hash } }, status: :unprocessable_entity
   rescue ActiveRecord::RecordNotUnique
-    render json: { error: { code: "invalid_registration", message: "Email has already been taken." } }, status: :unprocessable_entity
+    render json: { error: { code: "invalid_registration", message: I18n.t("errors.authentication.email_taken") } }, status: :unprocessable_entity
   end
 
   def login
     credentials = login_params
     if credentials[:email].blank? || credentials[:password].blank?
-      return render json: { error: { code: "invalid_credentials_input", message: "Email and password are required." } }, status: :unprocessable_entity
+      return render json: { error: { code: "invalid_credentials_input", message: I18n.t("errors.authentication.credentials_required") } }, status: :unprocessable_entity
     end
 
     result = Authentication::AuthenticateUser.call(email: credentials[:email], password: credentials[:password])
@@ -27,6 +27,11 @@ class AuthenticationController < ApplicationController
 
   def me
     render json: { user: user_response(current_user) }, status: :ok
+  end
+
+  def cable_ticket
+    ticket = Authentication::ActionCableTicket.issue(session: current_auth_session)
+    render json: { ticket: ticket }, status: :ok
   end
 
   def logout
@@ -45,7 +50,7 @@ class AuthenticationController < ApplicationController
   end
 
   def invalid_credentials
-    render json: { error: { code: "invalid_credentials", message: "Email or password is invalid." } }, status: :unauthorized
+    render json: { error: { code: "invalid_credentials", message: I18n.t("errors.authentication.credentials_invalid") } }, status: :unauthorized
   end
 
   def authentication_response(user, credentials)
@@ -57,6 +62,6 @@ class AuthenticationController < ApplicationController
   end
 
   def user_response(user)
-    { id: user.id, email: user.email, name: user.name }
+    UserSerializer.call(user)
   end
 end

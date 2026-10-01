@@ -19,7 +19,7 @@ class ExpensesController < ApplicationController
     candidate = @team.expenses.build(
       creator_membership: creator_membership,
       member_membership: target_membership,
-      status: "draft"
+      status: ExpenseConstants::STATUSES[:draft]
     )
     authorize candidate, :create?
 
@@ -32,7 +32,7 @@ class ExpensesController < ApplicationController
   rescue ActiveRecord::RecordInvalid => error
     render json: { error: { code: "invalid_expense", details: error.record.errors.to_hash } }, status: :unprocessable_entity
   rescue ActiveRecord::RecordNotUnique
-    render json: { error: { code: "expense_conflict", message: "The expense conflicts with an existing record." } }, status: :conflict
+    render json: { error: { code: "expense_conflict", message: I18n.t("errors.expense.conflict") } }, status: :conflict
   end
 
   def show
@@ -80,7 +80,7 @@ class ExpensesController < ApplicationController
     expense = Expenses::Submit.call(expense: @expense, user: current_user)
     render json: {
       expense: expense_response(expense),
-      approvals: expense.expense_approvals.order(:step).map { |approval| approval_response(approval) }
+      approvals: expense.expense_approvals.order(:step).map { |approval| ExpenseApprovalSerializer.call(approval) }
     }, status: :ok
   rescue Expenses::WorkflowConflict => error
     render_workflow_conflict(error)
@@ -89,7 +89,7 @@ class ExpensesController < ApplicationController
   rescue ActiveRecord::RecordInvalid => error
     render json: { error: { code: "invalid_submission", details: error.record.errors.to_hash } }, status: :unprocessable_entity
   rescue ActiveRecord::RecordNotUnique
-    render json: { error: { code: "submission_conflict", message: "The expense already has approval steps." } }, status: :conflict
+    render json: { error: { code: "submission_conflict", message: I18n.t("errors.approval.steps_exist") } }, status: :conflict
   end
 
   def approval
@@ -97,10 +97,10 @@ class ExpensesController < ApplicationController
     decision = decision_params[:decision].to_s
     rejection_reason = decision_params[:rejection_reason]
     unless Expenses::Review::DECISIONS.include?(decision)
-      return render json: { error: { code: "invalid_decision", message: "Decision must be approve or reject." } }, status: :unprocessable_entity
+      return render json: { error: { code: "invalid_decision", message: I18n.t("errors.approval.invalid_decision") } }, status: :unprocessable_entity
     end
-    if decision == "reject" && rejection_reason.blank?
-      return render json: { error: { code: "rejection_reason_required", message: "A rejection reason is required." } }, status: :unprocessable_entity
+    if decision == ApprovalConstants::DECISIONS[:reject] && rejection_reason.blank?
+      return render json: { error: { code: "rejection_reason_required", message: I18n.t("errors.approval.rejection_reason_required") } }, status: :unprocessable_entity
     end
 
     authorize @expense, :approve?
@@ -111,13 +111,13 @@ class ExpensesController < ApplicationController
       rejection_reason: rejection_reason
     )
     approval = expense.expense_approvals.find_by!(approver_membership_id: current_membership.id, stage: current_membership.approval_stage)
-    render json: { expense: expense_response(expense), approval: approval_response(approval) }, status: :ok
+    render json: { expense: expense_response(expense), approval: ExpenseApprovalSerializer.call(approval) }, status: :ok
   rescue Expenses::WorkflowConflict => error
     render_workflow_conflict(error)
   rescue ActiveRecord::RecordInvalid => error
     render json: { error: { code: "invalid_approval", details: error.record.errors.to_hash } }, status: :unprocessable_entity
   rescue ActiveRecord::RecordNotUnique
-    render json: { error: { code: "approval_conflict", message: "The approval decision conflicts with an existing decision." } }, status: :conflict
+    render json: { error: { code: "approval_conflict", message: I18n.t("errors.approval.conflict") } }, status: :conflict
   end
 
   def create_reimbursement
@@ -125,14 +125,14 @@ class ExpensesController < ApplicationController
     reimbursement = Reimbursements::Create.call(expense: @expense, user: current_user)
     render json: {
       expense: expense_response(@expense.reload),
-      reimbursement: reimbursement_response(reimbursement)
+      reimbursement: ReimbursementSerializer.call(reimbursement)
     }, status: :created
   rescue Reimbursements::Conflict
-    render json: { error: { code: "reimbursement_conflict", message: "The expense is not eligible for reimbursement or is already reimbursed." } }, status: :conflict
+    render json: { error: { code: "reimbursement_conflict", message: I18n.t("errors.reimbursement.ineligible") } }, status: :conflict
   rescue ActiveRecord::RecordInvalid => error
     render json: { error: { code: "invalid_reimbursement", details: error.record.errors.to_hash } }, status: :unprocessable_entity
   rescue ActiveRecord::RecordNotUnique
-    render json: { error: { code: "reimbursement_conflict", message: "A reimbursement already exists for this expense." } }, status: :conflict
+    render json: { error: { code: "reimbursement_conflict", message: I18n.t("errors.reimbursement.exists") } }, status: :conflict
   end
 
   private
@@ -167,7 +167,7 @@ class ExpensesController < ApplicationController
   end
 
   def missing_lock_version
-    render json: { error: { code: "lock_version_required", message: "lock_version is required." } }, status: :unprocessable_entity
+    render json: { error: { code: "lock_version_required", message: I18n.t("errors.expense.lock_version_required") } }, status: :unprocessable_entity
   end
 
   def render_stale_conflict
@@ -175,57 +175,17 @@ class ExpensesController < ApplicationController
     render json: {
       error: {
         code: "stale_expense",
-        message: "The expense changed since it was last read.",
+        message: I18n.t("errors.expense.stale"),
         current_lock_version: @expense.lock_version
       }
     }, status: :conflict
   end
 
   def render_workflow_conflict(error)
-    render json: { error: { code: "workflow_conflict", message: error.message.presence || "The expense is not in an actionable workflow state." } }, status: :conflict
-  end
-
-  def approval_response(approval)
-    {
-      id: approval.id,
-      step: approval.step,
-      stage: approval.stage,
-      approver_membership_id: approval.approver_membership_id,
-      status: approval.status,
-      acted_at: approval.acted_at,
-      rejection_reason: approval.rejection_reason
-    }
-  end
-
-  def reimbursement_response(reimbursement)
-    {
-      id: reimbursement.id,
-      expense_id: reimbursement.expense_id,
-      initiated_by_membership_id: reimbursement.initiated_by_membership_id,
-      amount: reimbursement.amount,
-      currency: reimbursement.currency,
-      status: reimbursement.status,
-      paid_at: reimbursement.paid_at,
-      failure_reason: reimbursement.failure_reason
-    }
+    render json: { error: { code: "workflow_conflict", message: error.message.presence || I18n.t("errors.approval.workflow_conflict") } }, status: :conflict
   end
 
   def expense_response(expense)
-    {
-      id: expense.id,
-      team_id: expense.team_id,
-      creator_membership_id: expense.creator_membership_id,
-      member_membership_id: expense.member_membership_id,
-      amount: expense.amount,
-      currency: expense.currency,
-      merchant: expense.merchant,
-      description: expense.description,
-      category: expense.category,
-      incurred_on: expense.incurred_on,
-      status: expense.status,
-      lock_version: expense.lock_version,
-      created_at: expense.created_at,
-      updated_at: expense.updated_at
-    }
+    ExpenseSerializer.call(expense)
   end
 end

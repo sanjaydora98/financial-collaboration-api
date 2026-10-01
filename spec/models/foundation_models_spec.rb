@@ -83,7 +83,7 @@ RSpec.describe "Foundation models" do
     end
 
     it "exposes string-backed status and role enums" do
-      expect(Expense.statuses.keys).to eq(Expense::STATUSES)
+      expect(Expense.statuses.keys).to eq(ExpenseConstants::STATUSES.keys.map(&:to_s))
       expect(Expense.new(status: "draft")).to be_draft
       expect { Expense.new(status: "unknown") }.to raise_error(ArgumentError)
       expect(TeamMembership.new(role: "admin")).to be_admin

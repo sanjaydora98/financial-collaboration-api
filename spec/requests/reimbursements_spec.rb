@@ -165,7 +165,7 @@ RSpec.describe "Reimbursements API", type: :request do
   end
 
   it "keeps the audit check and model event allowlist consistent" do
-    expect(AuditLog::WORKFLOW_EVENTS).to include(
+    expect(AuditConstants::WORKFLOW_EVENTS.values).to include(
       "submitted", "approved", "rejected", "reimbursement_paid", "import_accepted",
       "reimbursement_initiated", "reimbursement_failed"
     )

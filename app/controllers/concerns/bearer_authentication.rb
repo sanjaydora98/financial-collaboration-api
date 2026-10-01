@@ -9,7 +9,7 @@ module BearerAuthentication
     session = Authentication::SessionAuthenticator.call(request.headers["Authorization"])
 
     unless session
-      return render json: { error: { code: "unauthorized", message: "Authentication required." } }, status: :unauthorized
+      return render json: { error: { code: "unauthorized", message: I18n.t("errors.authentication.required") } }, status: :unauthorized
     end
 
     @current_auth_session = session

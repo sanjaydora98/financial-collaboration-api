@@ -98,6 +98,19 @@ RSpec.describe "Authentication API", type: :request do
   end
 
   describe "authenticated endpoints" do
+    it "issues a short-lived ActionCable ticket for the authenticated session" do
+      user = create_user
+      token, session = token_for(user)
+
+      post "/auth/cable_ticket", headers: authenticate(token)
+
+      expect(response).to have_http_status(:ok)
+      ticket = response_json.fetch("ticket")
+      expect(ticket).to be_present
+      expect(Authentication::ActionCableTicket.authenticate(ticket: ticket)).to eq(session)
+      expect(response.body).not_to include(token)
+    end
+
     it "returns 401 when the Authorization header is missing or invalid" do
       get "/auth/me"
       expect(response).to have_http_status(:unauthorized)

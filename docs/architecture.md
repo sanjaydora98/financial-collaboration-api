@@ -4,7 +4,7 @@
 
 The application is a single Rails 7.1 API monolith. PostgreSQL is the source of truth for teams, expenses, approvals, reimbursements, imports, and audit history. Redis backs Sidekiq and ActionCable. Controllers handle HTTP concerns, Pundit policies authorize actions, and focused service objects own business transactions. No microservices, event-sourcing platform, or generic workflow engine is needed.
 
-The existing application is configured API-only. This document describes the intended design; it does not add models, migrations, controllers, services, or configuration.
+The application is configured API-only. This document describes the implemented design and its explicit take-home assumptions.
 
 ## Domains and components
 
@@ -16,7 +16,7 @@ The existing application is configured API-only. This document describes the int
 - **Audit:** `AuditLog` records mandatory expense CRUD events and optional workflow events.
 - **Asynchronous and live updates:** Sidekiq runs import jobs; ActionCable broadcasts committed changes to authorized team members.
 
-Keep services small and explicit: `CreateExpense`, `UpdateExpense`, `DeleteExpense`, `SubmitExpense`, `ReviewExpense`, `BulkReviewExpenses`, `RecordReimbursement`, `ImportTransactions`, and `ReviewImportedTransactions`. Services validate transitions, establish actor context, and coordinate writes. Jobs call the same services rather than duplicating business rules.
+Keep services small and explicit: `Expenses::Create`, `Expenses::Update`, `Expenses::Delete`, `Expenses::Submit`, `Expenses::Review`, `ImportedTransactions::BulkReview`, `Reimbursements::Create`, `Imports::Request`, and `Imports::Process`. Services validate transitions, establish actor context, and coordinate writes. Jobs call the same services rather than duplicating business rules.
 
 Controllers authenticate first, scope record lookup to the user's active team membership, authorize with Pundit, invoke a service, and render JSON. Never load a tenant-owned row globally and then rely on a policy check to prevent cross-team access.
 
@@ -47,7 +47,7 @@ Rejected expenses are terminal in the stated assignment lifecycle; no resubmissi
 
 Use `has_secure_password` with an explicitly declared `bcrypt` dependency. Generate a cryptographically random opaque bearer token with at least 256 bits of entropy. Return the raw token once; persist only its SHA-256 hex digest in `AuthSession.token_digest`. On each request, hash the presented token, find the matching session by its unique digest, and reject missing, expired, revoked, or disabled-user sessions. The authentication layer sets `current_user` and the active `current_membership` after the team is selected and verified.
 
-Logout sets `revoked_at`; expiration is checked on every request. Do not log bearer tokens. ActionCable authenticates the user and team membership at connection/subscription time. Do not put a long-lived bearer token in a WebSocket URL; use a transport that can send the authorization header or a short-lived signed connection ticket from an authenticated API request.
+Logout sets `revoked_at`; expiration is checked on every request. Do not log bearer tokens. ActionCable obtains a one-minute signed connection ticket from an authenticated API request. The ticket contains the session ID, not the bearer token; the connection rechecks that the session remains active and the user remains enabled, then the channel authorizes active team membership before subscribing.
 
 ## Expense and approval workflow
 
@@ -69,7 +69,7 @@ For this take-home, a `creator` may initiate reimbursement only for an approved 
 
 Every successful Expense create, update, and logical delete produces one `AuditLog` CRUD row. Centralize these writes in `Expense` create/update callbacks that run inside the Active Record save transaction. The request/job sets actor context (`current_membership` or system actor), and the delete service marks `deleted_at`, which the audit writer classifies as `delete`. A normal field change is `update`. Avoid `update_columns`, `delete_all`, direct SQL mutation of expenses, and physical deletes because they bypass callbacks and violate this invariant. Tests must verify CRUD paths and rollback behavior.
 
-CRUD events are separate from workflow events. Submission, approval/rejection, reimbursement payment, and imported-transaction acceptance may add `workflow` audit rows with named event types. An approval or reimbursement that updates the expense therefore has its required CRUD `update` row plus a distinct workflow event when useful. The JSONB `audit_logs.change_data` column stores relevant before/after business fields as `{ "before": { ... }, "after": { ... } }`. Create events use an empty `before`; update and logical-delete events include only changed business attributes. Lock/timestamp bookkeeping is omitted. `AuditLog` rows are append-only and never contain secrets or raw provider credentials.
+CRUD events are separate from workflow events. Submission, approval/rejection, reimbursement initiation/payment/failure, and imported-transaction acceptance may add `workflow` audit rows with named event types. An approval or reimbursement that updates the expense therefore has its required CRUD `update` row plus a distinct workflow event. The JSONB `audit_logs.change_data` column stores relevant before/after business fields as `{ "before": { ... }, "after": { ... } }`. Create events use an empty `before`; update and logical-delete events include only changed business attributes. Lock/timestamp bookkeeping is omitted. `AuditLog` rows are append-only and never contain secrets or raw provider credentials.
 
 ## Transaction boundaries
 
@@ -82,9 +82,9 @@ Every business mutation and the audit rows that describe it share one PostgreSQL
 | Expense delete | Logical-delete update and its delete audit row. |
 | Expense submission | Expense status/timestamp, both approval assignment rows, and submission workflow audit row. |
 | Approval decision | Approval decision/reason/timestamp, any next-step activation or skip, expense status, and workflow audit row. Expense CRUD callback audit is in the same transaction. |
-| Reimbursement payment | Reimbursement status/reference/timestamp, expense status, and workflow audit row. Expense CRUD callback audit is in the same transaction. |
+| Reimbursement payment | Reimbursement status/timestamp, expense status, and workflow audit row. Expense CRUD callback audit is in the same transaction. |
 | Imported transaction acceptance | Lock/review the imported transaction, create the expense, mark the transaction accepted, and write workflow audit. Expense create audit is in the same transaction. |
-| Bulk review | Lock selected rows in stable ID order and apply all decisions and audit rows in one transaction; reject the whole batch if any item is invalid. |
+| Bulk review | Preauthorize the full team-scoped ID set, then process each item in its own transaction and return one result per ID. Successful items remain committed when another item conflicts or fails validation. |
 
 Team creation and its initial membership are also atomic. Import batch progress can be recorded in separate transactions; each provider row's idempotency claim and writes must be atomic. External network calls do not occur inside database transactions.
 
@@ -127,7 +127,7 @@ ActionCable uses the configured Redis adapter. Authorize active membership befor
 
 ## Trade-offs
 
-- `bcrypt` is not currently in the Gemfile and must be added explicitly before implementing password authentication.
+- `bcrypt` is an explicit Gemfile dependency for `has_secure_password`.
 - Team-matching composite foreign keys protect tenant references at the database boundary but are more involved than scalar Rails associations. Keep Rails associations on scalar IDs and add only the composite constraints documented in `database_design.md`.
-- Rails 7.1/PostgreSQL migrations must be tested for schema dump/load round-tripping of composite constraints. Use the Rails migration DSL when it can represent the constraint; otherwise use named, reversible SQL. If `schema.rb` cannot faithfully retain the constraints, use `structure.sql` rather than silently dropping them.
+- Rails 7.1/PostgreSQL migrations must be tested for schema dump/load round-tripping of composite constraints. Use the Rails migration DSL when it can represent the constraint; otherwise use named, reversible SQL. This app sets SQL schema format and tracks `db/structure.sql` as the authoritative schema so composite constraints are retained.
 - The one-manager/one-finance assignment and full reimbursement are explicit take-home assumptions, not universal workflow rules.

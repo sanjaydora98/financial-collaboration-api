@@ -351,6 +351,16 @@ RSpec.describe "Imports API", type: :request do
     expect(ImportedTransaction.find(transaction_id).status).to eq("pending")
   end
 
+  it "rejects oversized bulk review payloads before processing any item" do
+    oversized_ids = (1..101).to_a
+
+    post "/teams/#{@team.id}/imported_transactions/bulk_review",
+      params: { action: "accept", ids: oversized_ids }, headers: headers_for(@admin), as: :json
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(json.dig("error", "code")).to eq("invalid_ids")
+  end
+
   it "returns an explicit per-item conflict when bulk review encounters a finalized transaction" do
     create_import(key: "bulk-finalized", transactions: [@payload, @payload.merge(external_transaction_id: "bulk-finalized-2")])
     perform_import_jobs(import_id.to_i)

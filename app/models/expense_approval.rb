@@ -1,9 +1,6 @@
 class ExpenseApproval < ApplicationRecord
-  STAGES = %w[manager finance].freeze
-  STATUSES = %w[queued pending approved rejected skipped].freeze
-
-  enum :stage, STAGES.index_with(&:itself)
-  enum :status, STATUSES.index_with(&:itself)
+  enum :stage, ApprovalConstants::STAGES
+  enum :status, ApprovalConstants::STATUSES
 
   belongs_to :team
   belongs_to :expense, inverse_of: :expense_approvals
@@ -19,7 +16,7 @@ class ExpenseApproval < ApplicationRecord
   private
 
   def step_matches_stage
-    expected = { "manager" => 1, "finance" => 2 }[stage]
+    expected = ApprovalConstants::STAGE_STEPS[stage]
     errors.add(:step, "does not match stage") if expected && step != expected
   end
 

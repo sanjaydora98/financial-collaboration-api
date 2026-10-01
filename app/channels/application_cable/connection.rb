@@ -3,7 +3,7 @@ module ApplicationCable
     identified_by :current_user, :current_auth_session
 
     def connect
-      self.current_auth_session = Authentication::SessionAuthenticator.call(request.headers["Authorization"])
+      self.current_auth_session = Authentication::ActionCableTicket.authenticate(ticket: request.params["ticket"])
       reject_unauthorized_connection unless current_auth_session
 
       self.current_user = current_auth_session.user

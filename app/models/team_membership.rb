@@ -1,15 +1,7 @@
 class TeamMembership < ApplicationRecord
-  enum :role, {
-    creator: "creator",
-    approver: "approver",
-    viewer: "viewer",
-    admin: "admin"
-  }
+  enum :role, MembershipConstants::ROLES
 
-  enum :approval_stage, {
-    manager: "manager",
-    finance: "finance"
-  }, prefix: true
+  enum :approval_stage, MembershipConstants::APPROVAL_STAGES, prefix: true
 
   belongs_to :team
   belongs_to :user
@@ -29,10 +21,10 @@ class TeamMembership < ApplicationRecord
 
   def approval_stage_matches_role
     allowed = case role
-    when "approver"
-      %w[manager finance]
-    when "admin"
-      [nil, "manager", "finance"]
+    when MembershipConstants::ROLES[:approver]
+      MembershipConstants::APPROVAL_STAGES.values
+    when MembershipConstants::ROLES[:admin]
+      [nil, *MembershipConstants::APPROVAL_STAGES.values]
     else
       [nil]
     end

@@ -3,8 +3,8 @@ module ImportedTransactions
     Result = Struct.new(:outcomes, keyword_init: true)
 
     def self.call(transactions:, reviewer:, action:, rejection_reason: nil)
-      raise ArgumentError, "Action must be accept or reject." unless %w[accept reject].include?(action)
-      raise ArgumentError, "Rejection reason is required." if action == "reject" && rejection_reason.blank?
+      raise ArgumentError, I18n.t("errors.import.invalid_action") unless ImportConstants::REVIEW_ACTIONS.include?(action)
+      raise ArgumentError, I18n.t("errors.import.rejection_reason_required") if action == "reject" && rejection_reason.blank?
 
       transactions.each do |transaction|
         policy = ImportedTransactionPolicy.new(reviewer, transaction)
@@ -25,7 +25,7 @@ module ImportedTransactions
         { id: transaction.id, result: "accepted", expense_id: expense.id }
       else
         Reject.call(imported_transaction: transaction, reviewer: reviewer, reason: rejection_reason)
-        { id: transaction.id, result: "rejected" }
+        { id: transaction.id, result: ImportConstants::IMPORTED_TRANSACTION_STATUSES[:rejected] }
       end
     rescue ReviewConflict
       { id: transaction.id, result: "conflict" }

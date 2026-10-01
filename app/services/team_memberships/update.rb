@@ -8,7 +8,7 @@ module TeamMemberships
         next_role = attributes.fetch(:role, membership.role)
         next_active = attributes.fetch(:active, membership.active?)
 
-        if membership.active? && membership.admin? && (!next_active || next_role != "admin")
+        if membership.active? && membership.admin? && (!next_active || next_role != MembershipConstants::ROLES[:admin])
           other_active_admin_exists = team.team_memberships.where(active: true).admin.where.not(id: membership.id).exists?
           raise LastActiveAdminError unless other_active_admin_exists
         end

@@ -146,7 +146,7 @@ Checks: positive amount; uppercase three-character currency; status in `pending`
 
 Foreign keys: `team_id -> teams.id`; `(team_id, expense_id) -> expenses(team_id, id)`; optional `(team_id, actor_membership_id) -> team_memberships(team_id, id)`, restrictive. Indexes: `(team_id, expense_id, created_at, id)` for chronological history.
 
-Checks: category is `crud` or `workflow`; CRUD event type is `create`, `update`, or `delete`; workflow event type is `submitted`, `approved`, `rejected`, `reimbursement_paid`, or `import_accepted`; actor type is `user` or `system`; user actor requires membership ID and system actor requires null. Association: belongs to expense and optionally actor membership. Audit rows are immutable.
+Checks: category is `crud` or `workflow`; CRUD event type is `create`, `update`, or `delete`; workflow event type is `submitted`, `approved`, `rejected`, `reimbursement_paid`, `reimbursement_initiated`, `reimbursement_failed`, or `import_accepted`; actor type is `user` or `system`; user actor requires membership ID and system actor requires null. Association: belongs to expense and optionally actor membership. Audit rows are immutable.
 
 ### `imports`
 
@@ -211,7 +211,7 @@ Ordinary `belongs_to`/`has_many` associations use scalar bigint IDs, so normal R
 | Imported transactions `(team_id, import_id)` -> imports `(team_id, id)` | Prevents a transaction row from being stored under another team's batch. |
 | Imported transactions `(team_id, reviewed_by_membership_id)` -> memberships `(team_id, id)` | Keeps the reviewing actor inside the owning team. Null is allowed before review. |
 
-Rails model associations continue to use their scalar foreign-key columns. In Rails 7.1 migrations, express composite constraints with the migration API if supported by the PostgreSQL adapter; otherwise add named reversible SQL via `execute`. This is database integrity, not a composite Rails primary key. Verify migration, schema dump, and fresh database load preserve every composite constraint. If `schema.rb` cannot represent them faithfully, use `structure.sql`; never silently omit the constraints. Pundit scopes remain necessary: database constraints do not replace request authorization.
+Rails model associations continue to use their scalar foreign-key columns. In Rails 7.1 migrations, express composite constraints with the migration API if supported by the PostgreSQL adapter; otherwise add named reversible SQL via `execute`. This is database integrity, not a composite Rails primary key. This app uses SQL schema format and tracks `db/structure.sql` as its authoritative schema; migration, schema dump, and fresh database load must preserve every composite constraint. Pundit scopes remain necessary: database constraints do not replace request authorization.
 
 ## Important indexes and uniqueness
 
@@ -348,5 +348,5 @@ erDiagram
 - An expense has one attributed team member and one creator; admins alone may attribute new expenses to another member.
 - Reimbursement is full and one-per-expense. Partial/multiple reimbursements would need an allocation model and are out of scope.
 - Rejected expenses are terminal because no resubmission transition was specified.
-- `bcrypt` must be added explicitly for `has_secure_password`.
+- `bcrypt` is an explicit dependency for `has_secure_password`.
 - Composite foreign keys add migration/schema-dump complexity in exchange for database-enforced tenant consistency. Keep Rails associations scalar and test a fresh schema load before adding application code.

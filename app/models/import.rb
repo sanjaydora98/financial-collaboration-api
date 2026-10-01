@@ -1,7 +1,5 @@
 class Import < ApplicationRecord
-  STATUSES = %w[queued running completed failed].freeze
-
-  enum :status, STATUSES.index_with(&:itself)
+  enum :status, ImportConstants::STATUSES
 
   belongs_to :team
   belongs_to :requested_by_membership, class_name: "TeamMembership", inverse_of: :requested_imports

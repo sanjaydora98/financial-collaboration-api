@@ -1,7 +1,5 @@
 class Reimbursement < ApplicationRecord
-  STATUSES = %w[pending processing paid failed cancelled].freeze
-
-  enum :status, STATUSES.index_with(&:itself)
+  enum :status, ReimbursementConstants::STATUSES
 
   belongs_to :team
   belongs_to :expense, inverse_of: :reimbursement

@@ -1,7 +1,5 @@
 class ImportedTransaction < ApplicationRecord
-  STATUSES = %w[pending accepted rejected].freeze
-
-  enum :status, STATUSES.index_with(&:itself)
+  enum :status, ImportConstants::IMPORTED_TRANSACTION_STATUSES
 
   belongs_to :team
   belongs_to :import, inverse_of: :imported_transactions

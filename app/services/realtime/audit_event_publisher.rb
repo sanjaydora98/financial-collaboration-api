@@ -2,22 +2,24 @@ module Realtime
   class AuditEventPublisher
     def self.call(audit_log)
       case [audit_log.category, audit_log.event_type]
-      when ["crud", "create"]
-        publish_expense(audit_log, "expense.created")
-      when ["crud", "update"]
-        publish_expense(audit_log, "expense.updated")
-      when ["crud", "delete"]
-        publish_expense(audit_log, "expense.deleted")
-      when ["workflow", "submitted"]
-        publish_expense(audit_log, "expense.submitted")
-      when ["workflow", "approved"]
-        publish_expense(audit_log, "expense.approved", approval_stage: audit_log.change_data.dig("after", "approval_stage"))
-      when ["workflow", "rejected"]
-        publish_expense(audit_log, "expense.rejected", approval_stage: audit_log.change_data.dig("after", "approval_stage"))
-      when ["workflow", "reimbursement_initiated"], ["workflow", "reimbursement_paid"], ["workflow", "reimbursement_failed"]
+      when [AuditConstants::CATEGORIES[:crud], AuditConstants::CRUD_EVENTS[:create]]
+        publish_expense(audit_log, AuditConstants::REALTIME_EVENTS[:expense_created])
+      when [AuditConstants::CATEGORIES[:crud], AuditConstants::CRUD_EVENTS[:update]]
+        publish_expense(audit_log, AuditConstants::REALTIME_EVENTS[:expense_updated])
+      when [AuditConstants::CATEGORIES[:crud], AuditConstants::CRUD_EVENTS[:delete]]
+        publish_expense(audit_log, AuditConstants::REALTIME_EVENTS[:expense_deleted])
+      when [AuditConstants::CATEGORIES[:workflow], AuditConstants::WORKFLOW_EVENTS[:submitted]]
+        publish_expense(audit_log, AuditConstants::REALTIME_EVENTS[:expense_submitted])
+      when [AuditConstants::CATEGORIES[:workflow], AuditConstants::WORKFLOW_EVENTS[:approved]]
+        publish_expense(audit_log, AuditConstants::REALTIME_EVENTS[:expense_approved], approval_stage: audit_log.change_data.dig("after", "approval_stage"))
+      when [AuditConstants::CATEGORIES[:workflow], AuditConstants::WORKFLOW_EVENTS[:rejected]]
+        publish_expense(audit_log, AuditConstants::REALTIME_EVENTS[:expense_rejected], approval_stage: audit_log.change_data.dig("after", "approval_stage"))
+      when [AuditConstants::CATEGORIES[:workflow], AuditConstants::WORKFLOW_EVENTS[:reimbursement_initiated]],
+           [AuditConstants::CATEGORIES[:workflow], AuditConstants::WORKFLOW_EVENTS[:reimbursement_paid]],
+           [AuditConstants::CATEGORIES[:workflow], AuditConstants::WORKFLOW_EVENTS[:reimbursement_failed]]
         publish_reimbursement(audit_log)
-        publish_expense(audit_log, "expense.reimbursed") if audit_log.event_type == "reimbursement_paid"
-      when ["workflow", "import_accepted"]
+        publish_expense(audit_log, AuditConstants::REALTIME_EVENTS[:expense_reimbursed]) if audit_log.event_type == AuditConstants::WORKFLOW_EVENTS[:reimbursement_paid]
+      when [AuditConstants::CATEGORIES[:workflow], AuditConstants::WORKFLOW_EVENTS[:import_accepted]]
         publish_imported_transaction_acceptance(audit_log)
       end
     rescue StandardError => error
@@ -53,7 +55,7 @@ module Realtime
 
       Publisher.publish(
         team_id: expense.team_id,
-        event: "reimbursement.updated",
+        event: AuditConstants::REALTIME_EVENTS[:reimbursement_updated],
         resource: {
           id: reimbursement.id,
           expense_id: expense.id,
@@ -73,7 +75,7 @@ module Realtime
 
       Publisher.publish(
         team_id: transaction.team_id,
-        event: "imported_transaction.accepted",
+        event: AuditConstants::REALTIME_EVENTS[:imported_transaction_accepted],
         resource: { id: transaction.id, status: transaction.status, expense_id: audit_log.expense_id }
       )
     end

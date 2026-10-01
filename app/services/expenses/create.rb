@@ -15,7 +15,7 @@ module Expenses
         expense = team.expenses.build(attributes.slice(*ATTRIBUTES).merge(
           creator_membership: creator_membership,
           member_membership: member_membership,
-          status: "draft"
+          status: ExpenseConstants::STATUSES[:draft]
         ))
         expense.audit_actor_membership_id = creator_membership.id
         expense.save!

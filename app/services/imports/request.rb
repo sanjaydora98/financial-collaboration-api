@@ -22,7 +22,7 @@ module Imports
           requested_by_membership: requested_by_membership,
           provider: provider,
           idempotency_key: idempotency_key,
-          status: "queued"
+          status: ImportConstants::STATUSES[:queued]
         ),
         true
       ]

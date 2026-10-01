@@ -4,8 +4,8 @@ class ExpensePolicy < ApplicationPolicy
       return scope.none unless user
 
       memberships = user.team_memberships.where(active: true)
-      all_expense_team_ids = memberships.where(role: %w[admin approver viewer]).select(:team_id)
-      creator_membership_ids = memberships.where(role: "creator").select(:id)
+      all_expense_team_ids = memberships.where(role: MembershipConstants::EXPENSE_VISIBILITY_ROLES).select(:team_id)
+      creator_membership_ids = memberships.where(role: MembershipConstants::ROLES[:creator]).select(:id)
       visible = scope.not_deleted.where(team_id: all_expense_team_ids)
         .or(scope.not_deleted.where(creator_membership_id: creator_membership_ids))
         .or(scope.not_deleted.where(member_membership_id: creator_membership_ids))

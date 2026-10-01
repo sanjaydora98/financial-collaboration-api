@@ -1,10 +1,10 @@
 module Expenses
   class Review
-    DECISIONS = %w[approve reject].freeze
+    DECISIONS = ApprovalConstants::DECISIONS.values.freeze
 
     def self.call(expense:, user:, decision:, rejection_reason: nil)
-      raise ArgumentError, "Decision must be approve or reject." unless DECISIONS.include?(decision)
-      raise ArgumentError, "Rejection reason is required." if decision == "reject" && rejection_reason.blank?
+      raise ArgumentError, I18n.t("errors.approval.invalid_decision") unless DECISIONS.include?(decision)
+      raise ArgumentError, I18n.t("errors.approval.rejection_reason_required") if decision == ApprovalConstants::DECISIONS[:reject] && rejection_reason.blank?
 
       expense.with_lock do
         membership = user.team_memberships.find_by(team_id: expense.team_id, active: true)
@@ -29,12 +29,18 @@ module Expenses
         approval_before = approval.status
         finance_approval = nil
 
-        if approval.manager? && decision == "approve"
-          finance_approval = expense.expense_approvals.find_by(step: 2, stage: "finance")
+        if approval.manager? && decision == ApprovalConstants::DECISIONS[:approve]
+          finance_approval = expense.expense_approvals.find_by(
+            step: ApprovalConstants::STAGE_STEPS[ApprovalConstants::STAGES[:finance]],
+            stage: ApprovalConstants::STAGES[:finance]
+          )
           raise WorkflowConflict unless finance_approval&.queued?
           finance_approval.lock!
-        elsif approval.manager? && decision == "reject"
-          finance_approval = expense.expense_approvals.find_by(step: 2, stage: "finance")
+        elsif approval.manager? && decision == ApprovalConstants::DECISIONS[:reject]
+          finance_approval = expense.expense_approvals.find_by(
+            step: ApprovalConstants::STAGE_STEPS[ApprovalConstants::STAGES[:finance]],
+            stage: ApprovalConstants::STAGES[:finance]
+          )
           raise WorkflowConflict unless finance_approval&.queued?
           finance_approval.lock!
         end
@@ -43,29 +49,29 @@ module Expenses
         previous_finance_status = finance_approval&.status
         acted_at = Time.current
         approval.update!(
-          status: decision == "approve" ? "approved" : "rejected",
+          status: ApprovalConstants::DECISION_STATUSES.fetch(decision),
           acted_at: acted_at,
-          rejection_reason: decision == "reject" ? rejection_reason : nil
+          rejection_reason: decision == ApprovalConstants::DECISIONS[:reject] ? rejection_reason : nil
         )
 
-        if approval.manager? && decision == "approve"
-          finance_approval.update!(status: "pending")
-        elsif approval.manager? && decision == "reject"
-          finance_approval.update!(status: "skipped", acted_at: acted_at)
-          update_expense_status(expense, membership, "rejected")
-        elsif approval.finance? && decision == "approve"
-          update_expense_status(expense, membership, "approved")
-        elsif approval.finance? && decision == "reject"
-          update_expense_status(expense, membership, "rejected")
+        if approval.manager? && decision == ApprovalConstants::DECISIONS[:approve]
+          finance_approval.update!(status: ApprovalConstants::STATUSES[:pending])
+        elsif approval.manager? && decision == ApprovalConstants::DECISIONS[:reject]
+          finance_approval.update!(status: ApprovalConstants::STATUSES[:skipped], acted_at: acted_at)
+          update_expense_status(expense, membership, ExpenseConstants::STATUSES[:rejected])
+        elsif approval.finance? && decision == ApprovalConstants::DECISIONS[:approve]
+          update_expense_status(expense, membership, ExpenseConstants::STATUSES[:approved])
+        elsif approval.finance? && decision == ApprovalConstants::DECISIONS[:reject]
+          update_expense_status(expense, membership, ExpenseConstants::STATUSES[:rejected])
         end
 
         AuditLog.create!(
           team_id: expense.team_id,
           expense: expense,
           actor_membership: membership,
-          actor_type: "user",
-          category: "workflow",
-          event_type: decision == "approve" ? "approved" : "rejected",
+          actor_type: AuditConstants::ACTOR_TYPES[:user],
+          category: AuditConstants::CATEGORIES[:workflow],
+          event_type: decision == ApprovalConstants::DECISIONS[:approve] ? AuditConstants::WORKFLOW_EVENTS[:approved] : AuditConstants::WORKFLOW_EVENTS[:rejected],
           change_data: {
             before: {
               expense_status: previous_expense_status,
@@ -78,7 +84,7 @@ module Expenses
               approval_status: approval.status,
               finance_approval_status: finance_approval&.status,
               decision: decision,
-              rejection_reason: decision == "reject" ? rejection_reason : nil
+              rejection_reason: decision == ApprovalConstants::DECISIONS[:reject] ? rejection_reason : nil
             }.compact
           }
         )

@@ -25,14 +25,14 @@ module ImportedTransactions
           description: imported_transaction.description,
           category: imported_transaction.category,
           incurred_on: imported_transaction.transaction_date,
-          status: "draft"
+          status: ExpenseConstants::STATUSES[:draft]
         )
         expense.audit_actor_membership_id = membership.id
         expense.save!
 
         previous_status = imported_transaction.status
         imported_transaction.update!(
-          status: "accepted",
+          status: ImportConstants::IMPORTED_TRANSACTION_STATUSES[:accepted],
           reviewed_by_membership: membership,
           reviewed_at: Time.current
         )
@@ -41,9 +41,9 @@ module ImportedTransactions
           team_id: imported_transaction.team_id,
           expense: expense,
           actor_membership: membership,
-          actor_type: "user",
-          category: "workflow",
-          event_type: "import_accepted",
+          actor_type: AuditConstants::ACTOR_TYPES[:user],
+          category: AuditConstants::CATEGORIES[:workflow],
+          event_type: AuditConstants::WORKFLOW_EVENTS[:import_accepted],
           change_data: {
             before: { imported_transaction_status: previous_status },
             after: {

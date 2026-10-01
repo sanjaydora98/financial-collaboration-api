@@ -9,7 +9,7 @@ module Teams
           raise Pundit::NotAuthorizedError
         end
 
-        membership.update!(role: "admin")
+        membership.update!(role: MembershipConstants::ROLES[:admin])
       end
 
       membership

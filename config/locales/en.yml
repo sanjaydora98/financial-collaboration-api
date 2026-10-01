@@ -29,3 +29,43 @@
 
 en:
   hello: "Hello world"
+  errors:
+    request:
+      bad_request: "The request payload was invalid."
+      forbidden: "You are not authorized to perform this action."
+      unprocessable_entity: "The request could not be processed."
+      not_found: "Resource not found."
+      internal_server_error: "Something went wrong."
+    authentication:
+      required: "Authentication required."
+      email_taken: "Email has already been taken."
+      credentials_required: "Email and password are required."
+      credentials_invalid: "Email or password is invalid."
+    expense:
+      conflict: "The expense conflicts with an existing record."
+      lock_version_required: "lock_version is required."
+      stale: "The expense changed since it was last read."
+    approval:
+      steps_exist: "The expense already has approval steps."
+      invalid_decision: "Decision must be approve or reject."
+      rejection_reason_required: "A rejection reason is required."
+      conflict: "The approval decision conflicts with an existing decision."
+      missing_approver: "No active %{stage} approver is configured."
+      workflow_conflict: "The expense is not in an actionable workflow state."
+    reimbursement:
+      ineligible: "The expense is not eligible for reimbursement or is already reimbursed."
+      exists: "A reimbursement already exists for this expense."
+    import:
+      conflict: "The import request conflicts with an existing idempotency key."
+      review_not_pending: "The imported transaction is no longer pending review."
+      expense_exists: "An expense has already been created for this imported transaction."
+      rejection_reason_required: "A rejection reason is required."
+      invalid_ids: "Provide a non-empty list of unique imported transaction IDs with a maximum of %{max} items."
+      invalid_action: "Action must be accept or reject."
+      transactions_not_found: "One or more imported transactions were not found."
+    membership:
+      conflict: "The user already has a membership in this team or the approval stage is occupied."
+      stage_occupied: "The approval stage is occupied."
+      last_admin_required: "A team must retain an active admin."
+    team:
+      conflict: "Team slug is already in use."

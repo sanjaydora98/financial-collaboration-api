@@ -9,7 +9,12 @@ class ImportsController < ApplicationController
     import = Import.new(team: @team)
     authorize import, :index?
     imports = policy_scope(@team.imports).order(created_at: :desc, id: :desc)
-    render json: { imports: imports.map { |record| import_response(record) } }, status: :ok
+    transaction_counts = ImportedTransaction.where(import_id: imports.select(:id)).group(:import_id).count
+    render json: {
+      imports: imports.map do |record|
+        ImportSerializer.call(record, imported_transaction_count: transaction_counts.fetch(record.id, 0))
+      end
+    }, status: :ok
   end
 
   def create
@@ -24,16 +29,16 @@ class ImportsController < ApplicationController
       idempotency_key: attributes[:idempotency_key],
       transactions: attributes[:transactions]
     )
-    render json: { import: import_response(result.import), job_id: result.job_id }, status: result.created ? :accepted : :ok
+    render json: { import: ImportSerializer.call(result.import), job_id: result.job_id }, status: result.created ? :accepted : :ok
   rescue ActiveRecord::RecordInvalid => error
     render json: { error: { code: "invalid_import", details: error.record.errors.to_hash } }, status: :unprocessable_entity
   rescue ActiveRecord::RecordNotUnique
-    render json: { error: { code: "import_conflict", message: "The import request conflicts with an existing idempotency key." } }, status: :conflict
+    render json: { error: { code: "import_conflict", message: I18n.t("errors.import.conflict") } }, status: :conflict
   end
 
   def show
     authorize @import, :show?
-    render json: { import: import_response(@import) }, status: :ok
+    render json: { import: ImportSerializer.call(@import) }, status: :ok
   end
 
   private
@@ -54,18 +59,4 @@ class ImportsController < ApplicationController
     ).to_h.symbolize_keys
   end
 
-  def import_response(import)
-    {
-      id: import.id,
-      team_id: import.team_id,
-      requested_by_membership_id: import.requested_by_membership_id,
-      provider: import.provider,
-      idempotency_key: import.idempotency_key,
-      status: import.status,
-      started_at: import.started_at,
-      finished_at: import.finished_at,
-      error_summary: import.error_summary,
-      imported_transaction_count: import.imported_transactions.count
-    }
-  end
 end

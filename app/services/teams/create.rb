@@ -5,7 +5,7 @@ module Teams
 
       Team.transaction do
         team = Team.create!(attributes.merge(creator: user))
-        membership = team.team_memberships.create!(user: user, role: "creator", active: true)
+        membership = team.team_memberships.create!(user: user, role: MembershipConstants::ROLES[:creator], active: true)
         [team, membership]
       end
     end

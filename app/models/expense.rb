@@ -1,8 +1,5 @@
 class Expense < ApplicationRecord
-  STATUSES = %w[draft submitted approved rejected reimbursed].freeze
-  AUDIT_IGNORED_ATTRIBUTES = %w[created_at updated_at lock_version].freeze
-
-  enum :status, STATUSES.index_with(&:itself)
+  enum :status, ExpenseConstants::STATUSES
 
   scope :not_deleted, -> { where(deleted_at: nil) }
 
@@ -32,26 +29,26 @@ class Expense < ApplicationRecord
 
   def record_crud_audit
     event_type = if previously_new_record?
-      "create"
+      AuditConstants::CRUD_EVENTS[:create]
     elsif saved_change_to_deleted_at? && deleted_at.present?
-      "delete"
+      AuditConstants::CRUD_EVENTS[:delete]
     else
-      "update"
+      AuditConstants::CRUD_EVENTS[:update]
     end
 
-    audited_changes = saved_changes.except(*AUDIT_IGNORED_ATTRIBUTES)
+    audited_changes = saved_changes.except(*ExpenseConstants::AUDIT_IGNORED_ATTRIBUTES)
     before_values = audited_changes.transform_values(&:first)
     after_values = audited_changes.transform_values(&:last)
 
-    if event_type == "create"
+    if event_type == AuditConstants::CRUD_EVENTS[:create]
       before_values = {}
     end
 
     audit_logs.create!(
       team_id: team_id,
       actor_membership_id: audit_actor_membership_id,
-      actor_type: audit_actor_membership_id.present? ? "user" : "system",
-      category: "crud",
+      actor_type: audit_actor_membership_id.present? ? AuditConstants::ACTOR_TYPES[:user] : AuditConstants::ACTOR_TYPES[:system],
+      category: AuditConstants::CATEGORIES[:crud],
       event_type: event_type,
       change_data: { before: before_values, after: after_values }
     )
