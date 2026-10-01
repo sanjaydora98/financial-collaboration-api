@@ -90,6 +90,13 @@ npm run lint
 npm run build
 ```
 
+## Test Results
+
+Last verified as of **2026-10-01 19:47:46 +05:30**:
+
+- Backend: `bundle exec rspec` — **172 examples, 0 failures**
+- Frontend: `cd frontend && npm test` — **6 test files passed, 20 tests passed**
+
 ## Demo Flow
 
 Demo users are seeded with the same local-only password, `DemoPass123!`:
