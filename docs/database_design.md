@@ -58,9 +58,10 @@ Foreign keys: `created_by_id -> users.id`, restrictive. Indexes/uniqueness: uniq
 | `role` | varchar | no | none |
 | `approval_stage` | varchar | yes | none |
 | `active` | boolean | no | `true` |
+| `public_id` | uuid | no | generated UUID |
 | `created_at`, `updated_at` | timestamptz | no | current time |
 
-Foreign keys: `team_id -> teams.id`; `user_id -> users.id`, both restrictive. Indexes/uniqueness: unique `(team_id, user_id)` enforces exactly one active or inactive membership record per user/team pair; unique `(team_id, id)` to support tenant-matching composite references; `(user_id, team_id)` for a user's team list; partial unique `(team_id, approval_stage)` where `active`, `approval_stage IS NOT NULL`, and `role IN ('approver', 'admin')`. Checks: role in `creator`, `approver`, `viewer`, `admin`; creators and viewers require null `approval_stage`; approvers require `manager` or `finance`; admins may have null, `manager`, or `finance`. An admin with null stage is not eligible to approve. Associations: belongs to team/user; referenced by expense creator/member, approver, audit actor, reimbursement initiator, and import requester.
+Foreign keys: `team_id -> teams.id`; `user_id -> users.id`, both restrictive. Indexes/uniqueness: unique `(team_id, user_id)` enforces exactly one active or inactive membership record per user/team pair; unique `public_id` is the opaque identifier used by membership-management routes; unique `(team_id, id)` supports tenant-matching composite references; `(user_id, team_id)` supports a user's team list; partial unique `(team_id, approval_stage)` where `active`, `approval_stage IS NOT NULL`, and `role IN ('approver', 'admin')`. Checks: role in `creator`, `approver`, `viewer`, `admin`; creators and viewers require null `approval_stage`; approvers require `manager` or `finance`; admins may have null, `manager`, or `finance`. An admin with null stage is not eligible to approve. Associations: belongs to team/user; referenced by expense creator/member, approver, audit actor, reimbursement initiator, and import requester.
 
 ### `expenses`
 

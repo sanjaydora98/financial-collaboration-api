@@ -44,7 +44,6 @@ Prerequisites: Ruby 3.0.3, PostgreSQL, Redis, and Node.js 20.9 or newer. Start P
 	```bash
 	bundle install
 	bin/rails db:prepare
-	bin/rails db:migrate
 	bin/rails db:seed
 	```
 2. Optional backend environment overrides (the defaults below work locally):
